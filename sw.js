@@ -1,6 +1,6 @@
 /* Troque VERSION em cada publicação que modificar os arquivos do aplicativo. */
 'use strict';
-const VERSION='1.0.0';
+const VERSION='1.0.1';
 const SCOPE=new URL(self.registration.scope);
 const PREFIX='minha-escala:'+SCOPE.pathname+':';
 const CACHE=PREFIX+VERSION;

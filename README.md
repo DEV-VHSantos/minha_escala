@@ -1,4 +1,4 @@
-# Minha Escala — PWA 1.0.0
+# Minha Escala — PWA 1.0.1
 
 Calendário pessoal de trabalho a partir de uma planilha Excel da equipe.
 
@@ -85,7 +85,7 @@ Não há dependências a instalar, build a executar ou chaves a configurar para 
 ## Atualizações futuras
 
 1. Preserve o mesmo repositório e endereço para manter o armazenamento local no mesmo site.
-2. Antes de publicar arquivos modificados, altere `VERSION` no início de `sw.js`, por exemplo de `1.0.0` para `1.0.1`.
+2. Antes de publicar arquivos modificados, altere `VERSION` no início de `sw.js`, por exemplo de `1.0.1` para `1.0.2`.
 3. Atualize a versão exibida no rodapé de `index.html` e publique os arquivos atualizados.
 4. O aplicativo avisa quando a nova versão estiver pronta. O usuário escolhe **Atualizar app**; a escala local é preservada.
 5. Ao incluir um novo arquivo essencial ao aplicativo, acrescente seu caminho relativo à lista `FILES` de `sw.js`.
