@@ -1,12 +1,12 @@
 /* Troque VERSION em cada publicação que modificar os arquivos do aplicativo. */
 'use strict';
-const VERSION='1.0.2';
+const VERSION='1.0.3';
 const SCOPE=new URL(self.registration.scope);
 const PREFIX='minha-escala:'+SCOPE.pathname+':';
 const CACHE=PREFIX+VERSION;
 const FILES=[
  './','./index.html','./manifest.webmanifest',
- './assets/styles.css','./assets/core.js','./assets/app.js','./assets/pwa.js','./assets/storage.js',
+ './assets/styles.css','./assets/core.js','./assets/app.js','./assets/pwa.js','./assets/storage.js','./assets/changes.js',
  './assets/vendor/pako_inflate.min.js',
  './icons/icon-192.png','./icons/icon-512.png','./icons/maskable-192.png','./icons/maskable-512.png','./icons/apple-touch-icon.png','./icons/favicon.svg'
 ];

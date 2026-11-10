@@ -4,13 +4,13 @@ Calendário pessoal de trabalho a partir de uma planilha Excel da equipe.
 
 Desenvolvido por **Vitor Santos** · **dev.vitorhugosantos@gmail.com**
 
-## Atualizar seu aplicativo existente para 1.0.2
+## Atualizar seu aplicativo existente para 1.0.3
 
 1. Extraia este ZIP e abra o mesmo repositório que você já usa.
-2. Em **Add file → Upload files**, envie o conteúdo extraído inteiro, incluindo as pastas **assets** e **icons**. Mantenha os mesmos nomes e caminhos; o arquivo novo `assets/storage.js` precisa ser enviado.
+2. Em **Add file → Upload files**, envie o conteúdo extraído inteiro, incluindo as pastas **assets** e **icons**. Mantenha os mesmos nomes e caminhos; o novo arquivo `assets/changes.js` também precisa ser enviado.
 3. Salve em **Commit changes** e aguarde a publicação do GitHub Pages.
-4. Abra o aplicativo conectado à internet. Se aparecer **Uma nova versão está pronta**, toque em **Atualizar app**. Confira **1.0.2** no rodapé. Se o aviso não aparecer, feche e abra novamente.
-5. Seu calendário anterior continua disponível. **Anexe a planilha uma vez nesta versão** para salvar os dados de todos os funcionários no aparelho.
+4. Abra o aplicativo conectado à internet. Se aparecer **Uma nova versão está pronta**, toque em **Atualizar app**. Confira **1.0.3** no rodapé. Se o aviso não aparecer, feche e abra novamente.
+5. A escala e a equipe já salvas na versão 1.0.2 são preservadas. Ao importar a próxima revisão do mesmo mês, o campo **Alterações na escala**, abaixo do resumo mensal, mostra a comparação por funcionário. Se não houver uma planilha anterior salva, importe primeiro a versão anterior e depois a nova. Quem ainda usa 1.0.1 deve anexar a planilha uma vez para salvar a equipe inteira.
 6. Feche e reabra. Use **Trocar funcionário**: a lista da última planilha estará disponível sem anexar novamente.
 
 Não limpe os dados do navegador nem desinstale o PWA para atualizar.
@@ -50,7 +50,26 @@ Se o arquivo `.nojekyll` não aparecer após o envio, use **Add file → Create 
 3. Consulte o mês no calendário ou em **Lista**. Os cinco cartões de resumo ficam abaixo do calendário, antes dos detalhes no celular.
 4. Toque em um dia para ver a atividade, o horário, a equipe e as observações.
 5. Use **Trocar funcionário** para consultar outra pessoa, inclusive após fechar e reabrir o PWA. Os ajustes feitos em **Conferir registro** são mantidos ao trocar de pessoa.
-6. Ao receber uma nova revisão, anexe o novo arquivo. A última planilha substitui os dados anteriores, sem acumular plantões duplicados; os ajustes manuais da revisão anterior precisam ser conferidos novamente. Se algum funcionário não puder ser validado, ele fica marcado na lista como leitura pendente, com a causa, e não recebe um calendário inventado.
+6. Ao receber uma nova revisão, anexe o novo arquivo. A última planilha atualiza o calendário sem acumular plantões duplicados e a anterior fica como base da comparação; os ajustes manuais da revisão anterior precisam ser conferidos novamente. Se algum funcionário não puder ser validado, ele fica marcado na lista como leitura pendente, com a causa, e não recebe um calendário inventado.
+
+## Ver o que mudou em uma revisão
+
+1. Mantenha a escala anterior salva no aplicativo e importe a nova revisão do **mesmo mês**.
+2. Escolha o colaborador em **Trocar funcionário**.
+3. Abaixo dos cartões de resumo, consulte **Alterações na escala**: revisões comparadas, nomes dos arquivos, quantidades de registros adicionados, alterados, removidos e mantidos.
+4. Nos registros alterados, compare **Antes** e **Agora**: data, equipe, turno, horários, atividade, observação e presença/ausência. **Ver dia** abre a data no calendário.
+5. Funcionários novos recebem a indicação de que não apareciam na versão anterior. Quem deixou de aparecer continua na seleção, marcado como **ausente na nova planilha**, para consultar os registros retirados. A ausência do nome não confirma folga.
+
+A comparação fica salva neste aparelho e acompanha a troca de funcionário. Reanexar o mesmo conteúdo e revisão mantém a última comparação, mesmo se o arquivo tiver sido renomeado. Outra revisão passa a ser comparada com a última importação anterior. Não há histórico completo de todas as revisões.
+
+**Limites da comparação:**
+
+- Meses diferentes não são tratados como revisões um do outro.
+- Uma mudança de data aparece como remoção e inclusão, sem tentar adivinhar que se trata do mesmo plantão.
+- Leitura pendente ou cobertura incompleta produz uma diferença **sem confirmação**. Uma ausência de registro só é classificada como remoção confirmada quando a nova versão cobre integralmente o mês principal daquela data. Registros fora do mês principal sem correspondência ficam para conferência.
+- Se a leitura de um funcionário falhou em uma das versões, as mudanças dele não são confirmadas.
+- Ajustes manuais continuam disponíveis no calendário. A partir de 1.0.3, o relatório compara cópias dos dados **extraídos dos arquivos**, separadas dos ajustes. A base migrada de 1.0.2 pode incluir ajustes feitos anteriormente; o aplicativo avisa nesse caso.
+- Se um mês novo for importado, a comparação anterior é substituída. Para comparar duas revisões, elas precisam ser importadas em sequência neste aparelho.
 
 ## Regras preservadas
 
@@ -72,7 +91,7 @@ Se o arquivo `.nojekyll` não aparecer após o envio, use **Add file → Create 
 
 O processamento do Excel acontece no navegador. Não há login, servidor de dados, integração com agenda, analytics ou envio da planilha para um serviço externo.
 
-As escalas extraídas de **todos os funcionários da última planilha**, as observações, as ausências, o nome do arquivo, o período, a revisão, a data de importação e os ajustes manuais ficam no **IndexedDB**, um banco de dados do próprio navegador. O Excel original não é guardado pelo PWA e não é modificado. O último funcionário selecionado também é lembrado.
+As escalas extraídas de **todos os funcionários da última planilha**, as observações, as ausências, o nome do arquivo, o período, a revisão, a data de importação e os ajustes manuais ficam no **IndexedDB**, um banco de dados do próprio navegador. O Excel original não é guardado pelo PWA e não é modificado. O último funcionário selecionado também é lembrado. A base da importação anterior e a comparação mais recente ficam no mesmo armazenamento local; os arquivos Excel originais não são guardados.
 
 O salvamento reúne a planilha inteira em uma transação. Há uma segunda cópia dos dados no armazenamento local do mesmo navegador (`localStorage`), usada se o banco estiver indisponível. **Essa segunda cópia não é um backup externo** e também é removida ao limpar os dados do site. O aplicativo só informa que salvou depois de concluir o salvamento; falhas aparecem na tela. Se o navegador não permitir salvar, a troca de funcionários ainda funciona na sessão aberta, mas será necessário reimportar depois de fechar.
 
@@ -91,6 +110,7 @@ Depois do primeiro acesso completo com internet, os arquivos do aplicativo ficam
 | `assets/core.js` | Leitura e interpretação do Excel |
 | `assets/app.js` | Calendário, funcionários e ajustes de interpretação |
 | `assets/storage.js` | IndexedDB, cópia local de recuperação e persistência |
+| `assets/changes.js` | Comparação das revisões por funcionário |
 | `assets/pwa.js` | Instalação e aviso de atualização |
 | `assets/vendor/` | Descompactação local do Excel e licença |
 | `manifest.webmanifest` | Nome, ícones e comportamento de instalação |
@@ -104,7 +124,7 @@ Não há dependências a instalar, build a executar ou chaves a configurar para 
 ## Atualizações futuras
 
 1. Preserve o mesmo repositório e endereço para manter o armazenamento local no mesmo site.
-2. Antes de publicar arquivos modificados, altere `VERSION` no início de `sw.js`, por exemplo de `1.0.2` para `1.0.3`.
+2. Antes de publicar arquivos modificados, altere `VERSION` no início de `sw.js`, por exemplo de `1.0.3` para `1.0.4`.
 3. Atualize a versão exibida no rodapé de `index.html` e publique os arquivos atualizados.
 4. O aplicativo avisa quando a nova versão estiver pronta. O usuário escolhe **Atualizar app**; a escala local é preservada.
 5. Ao incluir um novo arquivo essencial ao aplicativo, acrescente seu caminho relativo à lista `FILES` de `sw.js`.
@@ -117,6 +137,9 @@ Não há dependências a instalar, build a executar ou chaves a configurar para 
 - Feche e reabra o aplicativo e confira a última escala.
 - Toque em **Trocar funcionário** e selecione outra pessoa sem anexar novamente.
 - Faça um ajuste de interpretação, troque de pessoa e volte para conferir que o ajuste foi mantido.
+- Importe uma revisão real do mesmo mês e confira as alterações de dois funcionários diferentes no campo abaixo do calendário.
+- Reabra e confirme que a comparação continua disponível.
+- Reanexe a mesma revisão e confirme que o relatório anterior foi mantido.
 - Instale no dispositivo e confira novamente. A interface da instalação varia por navegador.
 - Após o primeiro carregamento completo, ative o modo avião, reabra o aplicativo e confira a última escala.
 
