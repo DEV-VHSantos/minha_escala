@@ -138,7 +138,7 @@
     const fontStrike = styles ? tags(styles, 'fonts').flatMap(el => [...el.children]).map(el => tags(el, 'strike').some(s => !['0','false'].includes(s.getAttribute('val')))) : [];
     const epoch = tags(workbook, 'workbookPr')[0]?.getAttribute('date1904');
     const base = Date.UTC(epoch === '1' || epoch === 'true' ? 1904 : 1899, epoch === '1' || epoch === 'true' ? 0 : 11, epoch === '1' || epoch === 'true' ? 1 : 30);
-    const events = [], issues = [], coverage = new Map(), headerMonths = new Set(), sheetInfo = [], metadata = [];
+    const slots = [], events = [], issues = [], coverage = new Map(), headerMonths = new Set(), sheetInfo = [], metadata = [];
     const fileMonth = metadataMonth(file.name); if (fileMonth) metadata.push(fileMonth);
     let scanned = 0, countHeaders = 0, resolvedFormulaCount = 0;
     const sheets = tags(workbook, 'sheet');
@@ -190,6 +190,7 @@
         const date = serial == null ? null : iso(new Date(base + Math.floor(serial) * DAY));
         if (!date || !/^20\d{2}/.test(date)) throw Error('Data não identificada acima de ' + name + '!' + c.address + '. A importação foi cancelada porque a data não pôde ser validada.');
         headers.push({...c, date, team: m[1].toUpperCase(), shift: m[2].toUpperCase() === 'DIA' ? 'day' : 'night'});
+        slots.push({date,team:m[1].toUpperCase(),shift:m[2].toUpperCase()==='DIA'?'day':'night'});
         const month = monthOf(date); headerMonths.add(month);
         if (!coverage.has(month)) coverage.set(month, new Map());
         if (!coverage.get(month).has(date)) coverage.get(month).set(date, new Set());
@@ -242,7 +243,7 @@
     if (!result.some(e => monthOf(e.date) === month)) throw Error('Há registros seus fora do mês principal, mas nenhum no mês declarado. A importação precisa de revisão.');
     const revs = [...new Set([revision(file.name), ...sheetInfo.map(revision)].filter(Boolean))];
     if (revs.length > 1) throw Error('A revisão no nome do arquivo diverge da revisão na aba. Confirme qual versão está correta.');
-    return {person, parseVersion:3, fileName: file.name, month, revision: revs[0] || 'Não identificada', importedAt: new Date().toISOString(), source: 'excel', sheets: sheetInfo, events: result, complete: missingDays.length === 0, missingDays, issues: [...new Map(issues.map(i => [i.id, i])).values()], coverage: Object.fromEntries([...coverage].map(([m, days]) => [m, days.size])), notes: {scanned, countHeaders, resolvedFormulaCount, consolidated: events.length - result.length}};
+    return {person, slots:[...new Map(slots.map(s=>[s.date+'|'+s.shift+'|'+s.team,s])).values()], parseVersion:3, fileName: file.name, month, revision: revs[0] || 'Não identificada', importedAt: new Date().toISOString(), source: 'excel', sheets: sheetInfo, events: result, complete: missingDays.length === 0, missingDays, issues: [...new Map(issues.map(i => [i.id, i])).values()], coverage: Object.fromEntries([...coverage].map(([m, days]) => [m, days.size])), notes: {scanned, countHeaders, resolvedFormulaCount, consolidated: events.length - result.length}};
   }
   async function listEmployees(file) {
     if (!/\.xlsx$/i.test(file.name)) throw Error('Selecione uma planilha .xlsx.');

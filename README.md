@@ -4,12 +4,12 @@ Calendário pessoal de trabalho a partir de uma planilha Excel da equipe.
 
 Desenvolvido por **Vitor Santos** · **dev.vitorhugosantos@gmail.com**
 
-## Atualizar seu aplicativo existente para 1.0.3
+## Atualizar seu aplicativo existente para 1.0.4
 
 1. Extraia este ZIP e abra o mesmo repositório que você já usa.
-2. Em **Add file → Upload files**, envie o conteúdo extraído inteiro, incluindo as pastas **assets** e **icons**. Mantenha os mesmos nomes e caminhos; o novo arquivo `assets/changes.js` também precisa ser enviado.
+2. Em **Add file → Upload files**, envie o conteúdo extraído inteiro, incluindo as pastas **assets** e **icons**. Mantenha os mesmos nomes e caminhos; o novo arquivo `assets/team.js` também precisa ser enviado.
 3. Salve em **Commit changes** e aguarde a publicação do GitHub Pages.
-4. Abra o aplicativo conectado à internet. Se aparecer **Uma nova versão está pronta**, toque em **Atualizar app**. Confira **1.0.3** no rodapé. Se o aviso não aparecer, feche e abra novamente.
+4. Abra o aplicativo conectado à internet. Se aparecer **Uma nova versão está pronta**, toque em **Atualizar app**. Confira **1.0.4** no rodapé. Se o aviso não aparecer, feche e abra novamente.
 5. A escala e a equipe já salvas na versão 1.0.2 são preservadas. Ao importar a próxima revisão do mesmo mês, o campo **Alterações na escala**, abaixo do resumo mensal, mostra a comparação por funcionário. Se não houver uma planilha anterior salva, importe primeiro a versão anterior e depois a nova. Quem ainda usa 1.0.1 deve anexar a planilha uma vez para salvar a equipe inteira.
 6. Feche e reabra. Use **Trocar funcionário**: a lista da última planilha estará disponível sem anexar novamente.
 
@@ -51,6 +51,20 @@ Se o arquivo `.nojekyll` não aparecer após o envio, use **Add file → Create 
 4. Toque em um dia para ver a atividade, o horário, a equipe e as observações.
 5. Use **Trocar funcionário** para consultar outra pessoa, inclusive após fechar e reabrir o PWA. Os ajustes feitos em **Conferir registro** são mantidos ao trocar de pessoa.
 6. Ao receber uma nova revisão, anexe o novo arquivo. A última planilha atualiza o calendário sem acumular plantões duplicados e a anterior fica como base da comparação; os ajustes manuais da revisão anterior precisam ser conferidos novamente. Se algum funcionário não puder ser validado, ele fica marcado na lista como leitura pendente, com a causa, e não recebe um calendário inventado.
+
+## Equipe do dia
+
+A seção **Equipe do dia** fica abaixo do resumo mensal, antes da comparação de revisões. Ela consulta a última planilha importada, independentemente do funcionário selecionado para o calendário pessoal.
+
+- Clique em **Ver equipe de hoje** para consultar a data atual em America/Fortaleza.
+- Toque em um dia do calendário ou escolha uma data no campo **Data da consulta**. O calendário, seus detalhes e a equipe acompanham essa data.
+- Veja o nome da equipe e os colaboradores do turno **diurno (07h00–19h00)** e do **noturno (19h00–07h00 do dia seguinte)**. Os turnos são agrupados pela data de início; o término do noturno é informado com a data correta.
+- Observações, treinamentos e apoios aparecem junto ao colaborador. Nomes tachados ficam separados como **ausências**; registros ambíguos aparecem como **Conferir**, sem entrar na contagem de previstos.
+- Os ajustes manuais de interpretação realizados neste aparelho também aparecem nesta consulta. A comparação entre arquivos continua usando os dados de origem, como antes.
+- Datas fora da cobertura e turnos não identificados não geram equipes presumidas. Se algum colaborador tiver falha de leitura, a seção avisa que a relação pode estar incompleta.
+- Os dados salvos em 1.0.2/1.0.3 continuam disponíveis. Anexe a planilha **uma vez após atualizar** para guardar também todos os cabeçalhos de equipe e turno. Antes disso, a consulta usa os registros já disponíveis e sinaliza a cobertura não verificada. Se somente a escala individual estiver salva, será necessário reanexar para consultar a equipe inteira.
+
+Os dados continuam salvos somente neste aparelho e disponíveis sem anexar novamente. O PWA não registra presença real; mostra o que está previsto na planilha.
 
 ## Ver o que mudou em uma revisão
 
@@ -111,6 +125,7 @@ Depois do primeiro acesso completo com internet, os arquivos do aplicativo ficam
 | `assets/app.js` | Calendário, funcionários e ajustes de interpretação |
 | `assets/storage.js` | IndexedDB, cópia local de recuperação e persistência |
 | `assets/changes.js` | Comparação das revisões por funcionário |
+| `assets/team.js` | Equipes e colaboradores dos dois turnos por data |
 | `assets/pwa.js` | Instalação e aviso de atualização |
 | `assets/vendor/` | Descompactação local do Excel e licença |
 | `manifest.webmanifest` | Nome, ícones e comportamento de instalação |
@@ -124,7 +139,7 @@ Não há dependências a instalar, build a executar ou chaves a configurar para 
 ## Atualizações futuras
 
 1. Preserve o mesmo repositório e endereço para manter o armazenamento local no mesmo site.
-2. Antes de publicar arquivos modificados, altere `VERSION` no início de `sw.js`, por exemplo de `1.0.3` para `1.0.4`.
+2. Antes de publicar arquivos modificados, altere `VERSION` no início de `sw.js`, por exemplo de `1.0.4` para `1.0.5`.
 3. Atualize a versão exibida no rodapé de `index.html` e publique os arquivos atualizados.
 4. O aplicativo avisa quando a nova versão estiver pronta. O usuário escolhe **Atualizar app**; a escala local é preservada.
 5. Ao incluir um novo arquivo essencial ao aplicativo, acrescente seu caminho relativo à lista `FILES` de `sw.js`.
@@ -151,3 +166,7 @@ Não há dependências a instalar, build a executar ou chaves a configurar para 
 - [Adicionar um app da web no iPhone — Apple](https://support.apple.com/guide/iphone/iphea86e5236/ios)
 
 Biblioteca de terceiros: Pako (MIT/Zlib); arquivo e licença preservados em `assets/vendor/`.
+
+## Validação da versão 1.0.4
+
+Leitura de 25 colaboradores e 64 blocos de equipe/turno validada com a planilha de referência. Todos os eventos extraídos mantiveram o resultado da versão anterior. Conferidos NR35, apoio, BH, ENEM, dados persistidos e virada de ano. A prévia visual do navegador foi bloqueada pelo ambiente de desenvolvimento; confira o layout e os controles no endereço publicado, no computador e no iPhone.
