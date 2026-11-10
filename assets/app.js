@@ -1,6 +1,6 @@
 (() => {
  'use strict';
- const C=EscalaCore,$=id=>document.getElementById(id),KEY='minha-escala-simples-v3';
+ const C=EscalaCore,S=EscalaStorage,$=id=>document.getElementById(id);
  const esc=s=>String(s??'').replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
  const icon=s=>'<svg aria-hidden="true"><use href="#i-'+s+'"/></svg>';
  const clone=x=>JSON.parse(JSON.stringify(x));
@@ -8,7 +8,7 @@
  const fmtMonth=month=>new Intl.DateTimeFormat('pt-BR',{month:'long',year:'numeric',timeZone:'UTC'}).format(new Date(month+'-01T12:00Z'));
  const weekday=date=>new Intl.DateTimeFormat('pt-BR',{weekday:'long',timeZone:'UTC'}).format(new Date(date+'T12:00Z'));
  const today=new Intl.DateTimeFormat('sv-SE',{timeZone:C.TZ,year:'numeric',month:'2-digit',day:'2-digit'}).format(new Date());
- let state={version:3,person:'',current:null,theme:matchMedia('(prefers-color-scheme: dark)').matches?'dark':'light'},month=today.slice(0,7),selected=today,listMode=false,lastFile=null,lastNames=[],pendingFile=null,pendingNames=[],reviewId=null,toastTimer=null;
+ let state={version:4,person:'',current:null,roster:null,theme:matchMedia('(prefers-color-scheme: dark)').matches?'dark':'light'},month=today.slice(0,7),selected=today,listMode=false,pendingRoster=null,ready=false,protectUnreadable=false,reviewId=null,toastTimer=null;
  const absent=e=>e.type==='absence'||e.status==='absent';
  const kind=e=>absent(e)?'absence':e.type==='regular'?e.shift:e.type;
  const label=e=>absent(e)?'Ausência':e.type==='training'?'Treinamento':e.type==='support'?'Apoio':e.type==='special'?'Observação':e.type==='review'?'Conferir':e.shift==='night'?'Noturno':'Diurno';
@@ -18,16 +18,52 @@
  const totalHours=events=>events.filter(e=>!absent(e)).reduce((sum,e)=>sum+(e.workHours??12),0);
  const tag=e=>'<span class="tag '+kind(e)+'">'+icon(absent(e)?'close':e.type==='special'?'info':e.type==='training'?'book':e.shift==='night'?'moon':'sun')+esc(label(e))+'</span>';
  function warnStorage(message){$('storage-warning').textContent=message;$('storage-warning').hidden=false;}
- function save(){try{localStorage.setItem(KEY,JSON.stringify(state));return true;}catch{warnStorage('O navegador não permitiu salvar. Sua escala ficará somente nesta aba até você fechá-la.');return false;}}
- function restore(){try{
-  const raw=localStorage.getItem(KEY);
-  if(!raw){const old=localStorage.getItem('minha-escala-simples-v2');if(old){const prior=JSON.parse(old);state.person=prior.person||'';state.theme=prior.theme||state.theme;warnStorage('Leitura atualizada: anexe novamente a planilha para aplicar as observações e os nomes tachados.');}return;}
-  const saved=JSON.parse(raw);if(saved.version!==3||typeof saved.person!=='string')throw Error();
-  if(saved.current){C.validateEvents(saved.current.events);if(saved.current.person!==saved.person||saved.current.parseVersion!==3||!Array.isArray(saved.current.issues))throw Error();}
-  state=saved;if(state.current){month=state.current.month;selected=state.current.events.find(e=>e.date.startsWith(month))?.date||month+'-01';}
- }catch{warnStorage('Não foi possível recuperar a escala anterior. Anexe sua planilha novamente.');}}
+ function validateSchedule(c){
+  if(!c||c.parseVersion!==3||typeof c.person!=='string'||!/^20\d{2}-\d{2}$/.test(c.month)||Number(c.month.slice(5))<1||Number(c.month.slice(5))>12||typeof c.fileName!=='string'||!Number.isFinite(Date.parse(c.importedAt))||!Array.isArray(c.events)||!Array.isArray(c.issues)||!Array.isArray(c.missingDays)||!c.coverage)throw Error('Escala salva inválida.');
+  C.validateEvents(c.events);
+ }
+ function validateState(saved){
+  if(!saved||saved.version!==4||typeof saved.person!=='string'||!['light','dark'].includes(saved.theme))throw Error('Dados salvos incompatíveis.');
+  if(saved.current){validateSchedule(saved.current);if(saved.current.person!==saved.person)throw Error('Funcionário incompatível.');}
+  if(saved.roster){
+   const r=saved.roster;
+   if(r.version!==1||typeof r.fileName!=='string'||!Array.isArray(r.names)||!r.names.length||!r.names.every(n=>typeof n==='string')||!Array.isArray(r.schedules)||!Array.isArray(r.failures)||new Set(r.names.map(C.normalize)).size!==r.names.length)throw Error('Lista salva inválida.');
+   const entries=[...r.schedules,...r.failures];
+   if(entries.length!==r.names.length||new Set(entries.map(x=>C.normalize(x.person))).size!==r.names.length||r.names.some(n=>!entries.some(x=>C.normalize(x.person)===C.normalize(n))))throw Error('Lista incompleta.');
+   r.schedules.forEach(validateSchedule);
+   if(r.failures.some(x=>typeof x.message!=='string'))throw Error('Falha de leitura inválida.');
+   if(saved.current&&!r.schedules.some(x=>x.person===saved.person&&x.month===saved.current.month&&x.fileName===saved.current.fileName))throw Error('Escala incompatível com a planilha salva.');
+  }
+  return saved;
+ }
+ function rememberCurrent(){
+  if(!state.roster||!state.current)return;
+  const i=state.roster.schedules.findIndex(c=>c.person===state.person);
+  if(i>=0)state.roster.schedules[i]=clone(state.current);
+ }
+ async function save(){
+  if(!ready||(protectUnreadable&&!state.current))return false;
+  rememberCurrent();
+  const result=await S.write(state);
+  if(!result.ok){warnStorage('Não foi possível salvar neste aparelho. Os dados continuam nesta sessão; mantenha a planilha para anexar novamente.');return false;}
+  $('storage-warning').hidden=true;
+  return true;
+ }
+ async function restore(){
+  let damaged=false;
+  const {candidates,unavailable}=await S.read();
+  for(const record of candidates){try{if(record.format!==1)throw Error();state=validateState(record.state);return;}catch{damaged=true;}}
+  try{
+   const raw=localStorage.getItem('minha-escala-simples-v3');
+   if(raw){const prior=JSON.parse(raw);if(prior.version!==3)throw Error();state=validateState({...prior,version:4,roster:null});return;}
+   const old=localStorage.getItem('minha-escala-simples-v2');
+   if(old){const prior=JSON.parse(old);state.person=typeof prior.person==='string'?prior.person:'';if(['light','dark'].includes(prior.theme))state.theme=prior.theme;warnStorage('Leitura atualizada: anexe novamente a planilha para aplicar as observações e os nomes tachados.');}
+  }catch{damaged=true;}
+  if(damaged){protectUnreadable=true;warnStorage('Não foi possível recuperar os dados anteriores. Eles foram preservados no armazenamento. Anexe a planilha para continuar.');}
+  else if(unavailable)warnStorage('O armazenamento está restrito neste navegador. Ao importar, o aplicativo verificará se é possível salvar.');
+ }
  function toast(message,error=false){clearTimeout(toastTimer);$('toast-message').textContent=message;$('toast').classList.toggle('error',error);$('toast').hidden=false;if(!error)toastTimer=setTimeout(()=>$('toast').hidden=true,6000);}
- function theme(){document.body.classList.toggle('dark',state.theme==='dark');document.querySelector('meta[name=theme-color]').setAttribute('content',state.theme==='dark'?'#111e31':'#3568c0');$('theme-button').innerHTML=icon(state.theme==='dark'?'sun':'moon');$('theme-button').setAttribute('aria-label',state.theme==='dark'?'Ativar modo claro':'Ativar modo escuro');}
+ function theme(){document.body.classList.toggle('dark',state.theme==='dark');document.querySelector('meta[name=theme-color]').setAttribute('content',state.theme==='dark'?'#111e31':'#3568c0');document.querySelector('meta[name=theme-color]').setAttribute('content',state.theme==='dark'?'#111e31':'#3568c0');$('theme-button').innerHTML=icon(state.theme==='dark'?'sun':'moon');$('theme-button').setAttribute('aria-label',state.theme==='dark'?'Ativar modo claro':'Ativar modo escuro');}
  function render(){theme();const c=state.current;$('empty-view').hidden=!!c;$('calendar-view').hidden=!c;if(!c)return;$('person-name').textContent=state.person;$('avatar').textContent=state.person.split(/\s+/).slice(0,2).map(s=>s[0]).join('').toUpperCase();$('person-subtitle').textContent='Plantões, treinamentos e ausências de '+state.person+'.';renderIssues();renderStats();renderCalendar();renderDay();renderSource();}
  function renderStats(){
   const records=state.current.events.filter(e=>e.date.startsWith(month)),active=records.filter(e=>!absent(e)),absences=records.length-active.length,support=active.filter(e=>e.type==='support').length,training=active.filter(e=>e.type==='training').length;
@@ -68,26 +104,67 @@
   if(!events.length)html+='<div class="empty" style="padding:15px 0">'+(previous?'Sem novo plantão iniciado neste dia.':full?'Folga · nenhum plantão iniciado neste dia.':'Sem registro. A planilha não confirma a escala completa deste mês.')+'</div>';
   $('day-detail').innerHTML=html;
  }
- function renderSource(){const c=state.current;const stamp=new Intl.DateTimeFormat('pt-BR',{day:'2-digit',month:'2-digit',hour:'2-digit',minute:'2-digit',timeZone:C.TZ}).format(new Date(c.importedAt));$('source-card').innerHTML='<div class="card-eyebrow">'+icon('file')+' Planilha atual <span class="badge">'+esc(c.revision)+'</span></div><p class="file-name">'+esc(c.fileName)+'</p><div class="file-meta"><span>Funcionário</span><strong>'+esc(c.person)+'</strong></div><div class="file-meta"><span>Período principal</span><strong style="text-transform:capitalize">'+esc(fmtMonth(c.month))+'</strong></div><div class="file-meta"><span>Registros no arquivo</span><strong>'+c.events.length+'</strong></div><div class="file-meta"><span>Importada em</span><strong>'+esc(stamp)+'</strong></div><hr class="divider"><button class="button primary rail-action" data-import>'+icon('upload')+'Anexar nova planilha</button><p class="compact-note">Recebeu uma nova revisão? Anexe o arquivo mais recente para atualizar seu calendário.</p>';}
+ function renderSource(){const c=state.current;const stamp=new Intl.DateTimeFormat('pt-BR',{day:'2-digit',month:'2-digit',hour:'2-digit',minute:'2-digit',timeZone:C.TZ}).format(new Date(c.importedAt));$('source-card').innerHTML='<div class="card-eyebrow">'+icon('file')+' Planilha atual <span class="badge">'+esc(c.revision)+'</span></div><p class="file-name">'+esc(c.fileName)+'</p><div class="file-meta"><span>Funcionário</span><strong>'+esc(c.person)+'</strong></div><div class="file-meta"><span>Período principal</span><strong style="text-transform:capitalize">'+esc(fmtMonth(c.month))+'</strong></div><div class="file-meta"><span>Registros no arquivo</span><strong>'+c.events.length+'</strong></div><div class="file-meta"><span>Importada em</span><strong>'+esc(stamp)+'</strong></div><div class="file-meta"><span>Funcionários disponíveis</span><strong>'+(state.roster?state.roster.schedules.length:'Somente o selecionado')+'</strong></div><hr class="divider"><button class="button primary rail-action" data-import>'+icon('upload')+'Anexar nova planilha</button><p class="compact-note">'+(state.roster?'As escalas desta planilha ficam neste aparelho. Use Trocar funcionário sem anexar novamente.':'Seu calendário anterior foi mantido. Anexe a planilha uma vez para salvar todos os funcionários.')+' Recebeu uma nova revisão? Anexe o arquivo atualizado.</p>';}
  function setLoading(on,message='Lendo a planilha…'){$('loading-label').textContent=message;$('loading').hidden=!on;}
- async function generate(file,person,names){setLoading(true,'Montando seu calendário…');await new Promise(r=>setTimeout(r,25));try{const candidate=await C.parseWorkbook(file,person);state={...state,person,current:candidate};lastFile=file;lastNames=names;month=candidate.month;selected=candidate.events.find(e=>e.date===today)?.date||candidate.events.find(e=>e.date.startsWith(month))?.date||month+'-01';listMode=false;save();render();$('person-dialog').close();pendingFile=null;toast(candidate.events.length+' registros encontrados. Seu calendário está pronto.');}catch(e){toast(e.message||'Não foi possível ler a planilha. Sua escala anterior foi preservada.',true);}finally{setLoading(false);$('file-input').value='';}}
- function choosePerson(file,names){pendingFile=file;pendingNames=names;$('selected-file-name').textContent=file.name+' · '+names.length+' funcionários encontrados';const select=$('person-select');select.replaceChildren(new Option('Selecione seu nome',''),...names.map(n=>new Option(n,n)));const prior=names.find(n=>C.normalize(n)===C.normalize(state.person));if(prior)select.value=prior;$('person-generate').disabled=!select.value;$('person-dialog').showModal();}
- async function importFile(file){if(!file)return;setLoading(true);await new Promise(r=>setTimeout(r,25));try{const names=await C.listEmployees(file);const found=state.person&&names.find(n=>C.normalize(n)===C.normalize(state.person));setLoading(false);if(found)await generate(file,found,names);else choosePerson(file,names);}catch(e){setLoading(false);toast(e.message||'Não foi possível ler a planilha. Sua escala anterior foi preservada.',true);}finally{$('file-input').value='';}}
+ async function readRoster(file){
+  const names=await C.listEmployees(file),schedules=[],failures=[],importedAt=new Date().toISOString();
+  for(let i=0;i<names.length;i++){
+   setLoading(true,'Lendo funcionários: '+(i+1)+' de '+names.length+'.');
+   await new Promise(r=>setTimeout(r,0));
+   try{const schedule=await C.parseWorkbook(file,names[i]);schedule.importedAt=importedAt;schedules.push(schedule);}
+   catch(error){failures.push({person:names[i],message:error.message||'Não foi possível validar os registros deste funcionário.'});}
+  }
+  if(!schedules.length)throw Error(failures[0]?.message||'Não foi possível validar a planilha.');
+  return {version:1,fileName:file.name,importedAt,names,schedules,failures};
+ }
+ async function generate(roster,person){
+  const candidate=roster.schedules.find(c=>c.person===person);
+  if(!candidate){toast(roster.failures.find(c=>c.person===person)?.message||'Não foi possível recuperar este funcionário.',true);return;}
+  setLoading(true,'Salvando as escalas neste aparelho.');
+  try{
+   state={...state,person,current:clone(candidate),roster};
+   month=candidate.month;selected=candidate.events.find(e=>e.date===today)?.date||candidate.events.find(e=>e.date.startsWith(month))?.date||month+'-01';listMode=false;
+   const saved=await save();render();$('person-dialog').close();pendingRoster=null;
+   toast(saved?'Calendário pronto. Você pode trocar de funcionário sem anexar novamente.'+(roster.failures.length?' Há '+roster.failures.length+' funcionário(s) com leitura pendente; confira a lista.':''):'Calendário pronto nesta sessão, mas não foi possível salvar no aparelho.',!saved);
+   if(saved)void S.requestPersistence();
+  }catch{toast('Não foi possível concluir o salvamento. Mantenha a planilha para anexar novamente.',true);}
+  finally{setLoading(false);$('file-input').value='';}
+ }
+ function personSelection(){
+  const person=$('person-select').value,failure=pendingRoster?.failures.find(c=>c.person===person);
+  $('person-generate').disabled=!person||!!failure;
+  $('person-error').hidden=!failure;
+  $('person-error').textContent=failure?'Leitura pendente para '+person+': '+failure.message:'';
+ }
+ function choosePerson(roster){
+  pendingRoster=roster;
+  $('selected-file-name').textContent=roster.fileName+' · '+roster.names.length+' funcionários'+(roster.failures.length?' · '+roster.failures.length+' com leitura pendente':'');
+  const select=$('person-select');select.replaceChildren(new Option('Selecione seu nome',''),...roster.names.map(n=>new Option(n+(roster.failures.some(c=>c.person===n)?' — conferir leitura':''),n)));
+  const prior=roster.names.find(n=>C.normalize(n)===C.normalize(state.person));if(prior)select.value=prior;
+  personSelection();$('person-dialog').showModal();
+ }
+ async function importFile(file){
+  if(!file)return;setLoading(true,'Preparando a leitura de todos os funcionários.');await new Promise(r=>setTimeout(r,25));
+  try{const roster=await readRoster(file);const found=state.person&&roster.schedules.find(c=>C.normalize(c.person)===C.normalize(state.person));setLoading(false);if(found)await generate(roster,found.person);else choosePerson(roster);}
+  catch(e){setLoading(false);toast(e.message||'Não foi possível ler a planilha. Sua escala anterior foi preservada.',true);}
+  finally{$('file-input').value='';}
+ }
  function openReview(id){
   const e=state.current?.events.find(e=>e.id===id);if(!e)return;reviewId=id;$('review-source').textContent=fmtDate(e.date,true)+' · '+e.raw+' · '+e.sources.join(', ');$('review-identity').value='yes';$('review-type').value=e.type==='review'?(e.strikeInSource?'absence':'regular'):e.type;$('review-label').value=e.annotation||(['training','special'].includes(e.type)?e.activity:'');reviewFields();$('review-dialog').showModal();
  }
  function reviewFields(){const t=$('review-type').value;$('review-activity-fields').hidden=$('review-identity').value==='no';$('review-label-field').hidden=!['training','special','absence'].includes(t);$('review-label-title').textContent=t==='absence'?'Motivo da ausência (se informado)':t==='training'?'Identificação do treinamento':'Informação da planilha';}
- function saveReview(){
+ async function saveReview(){
   const c=state.current,e=c.events.find(e=>e.id===reviewId);if(!e)return;
   if($('review-identity').value==='no')c.events=c.events.filter(x=>x.id!==reviewId);
   else{const type=$('review-type').value,annotation=$('review-label').value.trim();if(['training','special'].includes(type)&&!annotation){toast('Informe a atividade ou observação.',true);return;}if(type!=='absence'&&c.events.some(x=>x.id!==e.id&&x.date===e.date&&x.shift===e.shift&&!absent(x))){toast('Já existe um registro ativo neste turno. Confira a planilha antes de alterar a ausência.',true);return;}Object.assign(e,{type,status:type==='absence'?'absent':'scheduled',workHours:type==='absence'?0:12,annotation:['training','special','absence'].includes(type)?annotation:e.annotation,activity:type==='absence'?annotation||'Ausência sem motivo informado':type==='regular'?'Plantão regular':type==='support'?'Apoio ao turno':annotation,pending:false,note:'Interpretação conferida manualmente por você nesta escala.'});}
-  c.issues=c.issues.filter(i=>i.id!==reviewId);save();render();$('review-dialog').close();toast('Registro atualizado no calendário.');
+  c.issues=c.issues.filter(i=>i.id!==reviewId);setLoading(true,'Salvando sua interpretação.');try{const saved=await save();render();$('review-dialog').close();toast(saved?'Registro atualizado e salvo neste aparelho.':'Registro atualizado nesta sessão, mas não foi possível salvar no aparelho.',!saved);}finally{setLoading(false);}
  }
  function pickDay(date){selected=date;month=date.slice(0,7);render();if(matchMedia('(max-width:720px)').matches)requestAnimationFrame(()=>$('day-detail').scrollIntoView({block:'nearest',behavior:'smooth'}));}
  document.addEventListener('click',e=>{if(e.target.closest('[data-import]')){$('file-input').click();return;}const close=e.target.closest('[data-close]');if(close){$(close.dataset.close).close();return;}const day=e.target.closest('[data-date]');if(day){pickDay(day.dataset.date);return;}const review=e.target.closest('[data-review]');if(review)openReview(review.dataset.review);});
  document.addEventListener('keydown',e=>{const row=e.target.closest('.agenda-row');if(row&&['Enter',' '].includes(e.key)){e.preventDefault();pickDay(row.dataset.date);}});
- $('file-input').addEventListener('change',e=>importFile(e.target.files[0]));$('person-select').addEventListener('change',()=>$('person-generate').disabled=!$('person-select').value);$('person-generate').addEventListener('click',()=>{if(pendingFile&&$('person-select').value)generate(pendingFile,$('person-select').value,pendingNames);});$('change-person').addEventListener('click',()=>{if(lastFile)choosePerson(lastFile,lastNames);else{toast('Anexe a planilha para escolher outro funcionário.');$('file-input').click();}});$('theme-button').addEventListener('click',()=>{state.theme=state.theme==='dark'?'light':'dark';save();theme();});$('help-open').addEventListener('click',()=>$('help-dialog').showModal());$('toast-close').addEventListener('click',()=>$('toast').hidden=true);$('review-identity').addEventListener('change',reviewFields);$('review-type').addEventListener('change',reviewFields);$('review-save').addEventListener('click',saveReview);
+ $('file-input').addEventListener('change',e=>importFile(e.target.files[0]));$('person-select').addEventListener('change',personSelection);$('person-generate').addEventListener('click',()=>{if(pendingRoster&&$('person-select').value)generate(pendingRoster,$('person-select').value);});$('change-person').addEventListener('click',()=>{if(state.roster)choosePerson(state.roster);else{toast('Seu calendário foi preservado. Anexe a planilha uma vez para salvar também os outros funcionários.');$('file-input').click();}});$('theme-button').addEventListener('click',()=>{state.theme=state.theme==='dark'?'light':'dark';void save();theme();});$('help-open').addEventListener('click',()=>$('help-dialog').showModal());$('toast-close').addEventListener('click',()=>$('toast').hidden=true);$('review-identity').addEventListener('change',reviewFields);$('review-type').addEventListener('change',reviewFields);$('review-save').addEventListener('click',saveReview);
  for(const [id,delta] of [['previous-month',-1],['next-month',1]])$(id).addEventListener('click',()=>{const d=new Date(month+'-01T12:00Z');d.setUTCMonth(d.getUTCMonth()+delta);month=d.toISOString().slice(0,7);selected=month+'-01';render();});$('mode-month').addEventListener('click',()=>{listMode=false;render();});$('mode-list').addEventListener('click',()=>{listMode=true;render();});
  const drop=$('hero-drop');drop.addEventListener('dragover',e=>{e.preventDefault();drop.classList.add('drag');});drop.addEventListener('dragleave',()=>drop.classList.remove('drag'));drop.addEventListener('drop',e=>{e.preventDefault();drop.classList.remove('drag');if(e.dataTransfer.files.length===1)importFile(e.dataTransfer.files[0]);else toast('Anexe uma planilha por vez.',true);});
- restore();render();
+ setLoading(true,'Recuperando as escalas deste aparelho.');
+ restore().then(()=>{ready=true;if(state.current){month=state.current.month;selected=state.current.events.find(e=>e.date.startsWith(month))?.date||month+'-01';}render();}).catch(()=>warnStorage('Não foi possível recuperar os dados. Anexe a planilha novamente.')).finally(()=>{ready=true;setLoading(false);});
 })();

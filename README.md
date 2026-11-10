@@ -1,8 +1,19 @@
-# Minha Escala — PWA 1.0.1
+# Minha Escala — PWA 1.0.2
 
 Calendário pessoal de trabalho a partir de uma planilha Excel da equipe.
 
 Desenvolvido por **Vitor Santos** · **dev.vitorhugosantos@gmail.com**
+
+## Atualizar seu aplicativo existente para 1.0.2
+
+1. Extraia este ZIP e abra o mesmo repositório que você já usa.
+2. Em **Add file → Upload files**, envie o conteúdo extraído inteiro, incluindo as pastas **assets** e **icons**. Mantenha os mesmos nomes e caminhos; o arquivo novo `assets/storage.js` precisa ser enviado.
+3. Salve em **Commit changes** e aguarde a publicação do GitHub Pages.
+4. Abra o aplicativo conectado à internet. Se aparecer **Uma nova versão está pronta**, toque em **Atualizar app**. Confira **1.0.2** no rodapé. Se o aviso não aparecer, feche e abra novamente.
+5. Seu calendário anterior continua disponível. **Anexe a planilha uma vez nesta versão** para salvar os dados de todos os funcionários no aparelho.
+6. Feche e reabra. Use **Trocar funcionário**: a lista da última planilha estará disponível sem anexar novamente.
+
+Não limpe os dados do navegador nem desinstale o PWA para atualizar.
 
 ## Publicar no GitHub Pages
 
@@ -36,9 +47,10 @@ Se o arquivo `.nojekyll` não aparecer após o envio, use **Add file → Create 
 
 1. Clique em **Anexar planilha** e escolha o arquivo `.xlsx` enviado pela empresa.
 2. Na primeira vez, escolha seu nome como ele aparece na lista.
-3. Consulte o mês no calendário ou em **Lista**.
+3. Consulte o mês no calendário ou em **Lista**. Os cinco cartões de resumo ficam abaixo do calendário, antes dos detalhes no celular.
 4. Toque em um dia para ver a atividade, o horário, a equipe e as observações.
-5. Ao receber uma nova revisão, anexe o novo arquivo. A nova importação substitui a escala exibida e não acumula plantões duplicados.
+5. Use **Trocar funcionário** para consultar outra pessoa, inclusive após fechar e reabrir o PWA. Os ajustes feitos em **Conferir registro** são mantidos ao trocar de pessoa.
+6. Ao receber uma nova revisão, anexe o novo arquivo. A última planilha substitui os dados anteriores, sem acumular plantões duplicados; os ajustes manuais da revisão anterior precisam ser conferidos novamente. Se algum funcionário não puder ser validado, ele fica marcado na lista como leitura pendente, com a causa, e não recebe um calendário inventado.
 
 ## Regras preservadas
 
@@ -60,7 +72,13 @@ Se o arquivo `.nojekyll` não aparecer após o envio, use **Add file → Create 
 
 O processamento do Excel acontece no navegador. Não há login, servidor de dados, integração com agenda, analytics ou envio da planilha para um serviço externo.
 
-O nome escolhido e a última escala ficam no armazenamento local do navegador. Trocar de celular, trocar de navegador ou limpar os dados do site não transfere a escala. Não há backup automático. Basta importar o Excel novamente.
+As escalas extraídas de **todos os funcionários da última planilha**, as observações, as ausências, o nome do arquivo, o período, a revisão, a data de importação e os ajustes manuais ficam no **IndexedDB**, um banco de dados do próprio navegador. O Excel original não é guardado pelo PWA e não é modificado. O último funcionário selecionado também é lembrado.
+
+O salvamento reúne a planilha inteira em uma transação. Há uma segunda cópia dos dados no armazenamento local do mesmo navegador (`localStorage`), usada se o banco estiver indisponível. **Essa segunda cópia não é um backup externo** e também é removida ao limpar os dados do site. O aplicativo só informa que salvou depois de concluir o salvamento; falhas aparecem na tela. Se o navegador não permitir salvar, a troca de funcionários ainda funciona na sessão aberta, mas será necessário reimportar depois de fechar.
+
+O aplicativo solicita ao navegador a persistência do armazenamento quando disponível. O navegador pode conceder ou negar. Isso não impede a remoção manual dos dados e não garante recuperação após perda do aparelho. Trocar de celular, trocar de navegador ou limpar os dados do site exige uma nova importação. Não existe sincronização entre dispositivos nem backup na nuvem. Cada aparelho precisa importar sua própria cópia da planilha.
+
+Na primeira atualização a partir de 1.0.1, a escala individual já salva é preservada. Como aquela versão não guardava os outros funcionários, anexe o Excel uma vez para habilitar a troca após reabrir.
 
 Depois do primeiro acesso completo com internet, os arquivos do aplicativo ficam em cache. O modo offline permite abrir o aplicativo, consultar a última escala e importar um Excel que já esteja salvo no dispositivo. O navegador pode remover dados locais por configurações de privacidade ou falta de espaço.
 
@@ -71,7 +89,8 @@ Depois do primeiro acesso completo com internet, os arquivos do aplicativo ficam
 | `index.html` | Tela inicial e estrutura da aplicação |
 | `assets/styles.css` | Cores, modo escuro e layout responsivo |
 | `assets/core.js` | Leitura e interpretação do Excel |
-| `assets/app.js` | Calendário, funcionário e dados locais |
+| `assets/app.js` | Calendário, funcionários e ajustes de interpretação |
+| `assets/storage.js` | IndexedDB, cópia local de recuperação e persistência |
 | `assets/pwa.js` | Instalação e aviso de atualização |
 | `assets/vendor/` | Descompactação local do Excel e licença |
 | `manifest.webmanifest` | Nome, ícones e comportamento de instalação |
@@ -85,7 +104,7 @@ Não há dependências a instalar, build a executar ou chaves a configurar para 
 ## Atualizações futuras
 
 1. Preserve o mesmo repositório e endereço para manter o armazenamento local no mesmo site.
-2. Antes de publicar arquivos modificados, altere `VERSION` no início de `sw.js`, por exemplo de `1.0.1` para `1.0.2`.
+2. Antes de publicar arquivos modificados, altere `VERSION` no início de `sw.js`, por exemplo de `1.0.2` para `1.0.3`.
 3. Atualize a versão exibida no rodapé de `index.html` e publique os arquivos atualizados.
 4. O aplicativo avisa quando a nova versão estiver pronta. O usuário escolhe **Atualizar app**; a escala local é preservada.
 5. Ao incluir um novo arquivo essencial ao aplicativo, acrescente seu caminho relativo à lista `FILES` de `sw.js`.
@@ -96,6 +115,8 @@ Não há dependências a instalar, build a executar ou chaves a configurar para 
 - Importe uma planilha real e confira um plantão diurno, um noturno e um treinamento.
 - Confira uma ausência com nome tachado e seu motivo; confirme que não somou 12 horas.
 - Feche e reabra o aplicativo e confira a última escala.
+- Toque em **Trocar funcionário** e selecione outra pessoa sem anexar novamente.
+- Faça um ajuste de interpretação, troque de pessoa e volte para conferir que o ajuste foi mantido.
 - Instale no dispositivo e confira novamente. A interface da instalação varia por navegador.
 - Após o primeiro carregamento completo, ative o modo avião, reabra o aplicativo e confira a última escala.
 
